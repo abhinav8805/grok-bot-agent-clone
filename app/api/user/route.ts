@@ -3,6 +3,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { authOptions } from "../auth/[...nextauth]/route";
 import { db, users } from "@/db";
 
+/**
+ * Handles POST requests to create (or sync) the authenticated user in the database.
+ * Requires an active session with a user email; inserts the user if they don't
+ * already exist, ignoring conflicts on the unique email column.
+ *
+ * @param req - The incoming Next.js request.
+ * @returns A JSON response indicating success, that the user already exists,
+ * an unauthorized error, or an internal server error.
+ */
 export async function POST(req:NextRequest){
     const session = await getServerSession(authOptions);
 
