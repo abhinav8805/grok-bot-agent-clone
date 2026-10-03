@@ -1,12 +1,21 @@
+"use client"
 import React from 'react';
 import Link from 'next/link';
+import { useSession, signOut, signIn } from 'next-auth/react';
 
 export default function Home() {
+
+  const {data} = useSession();
+  console.log(data);
   return (
     <div>
        <h2> 
-        Hello, Next.js!
+        Hello, {data?.user?.name || 'Guest'}!
        </h2>
+      <div className="gap-2.5">
+        <button className="gap-2.5" onClick = {() => signIn()}>Sign In</button>
+        <button className="gap-2.5" onClick = {() => signOut()}>Sign Out</button>
+      </div>
     </div>
   );
 }
