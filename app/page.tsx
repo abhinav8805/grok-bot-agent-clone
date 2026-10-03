@@ -3,6 +3,10 @@ import React from 'react';
 import Link from 'next/link';
 import { useSession, signOut, signIn } from 'next-auth/react';
 
+/**
+ * Home page component. Displays a greeting using the signed-in user's name
+ * (or "Guest" if unauthenticated) along with sign in/out controls.
+ */
 export default function Home() {
 
   const {data} = useSession();
