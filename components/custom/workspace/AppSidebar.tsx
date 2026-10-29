@@ -24,7 +24,8 @@ export default function AppSidebar() {
     async function getUserAgents() {
       try {
         const result = await axios.get('/api/agent');
-        if (isCurrent) setAgents(result.data.agentConfigs ?? []);
+        // GET /api/agent returns the agent config array directly.
+        if (isCurrent) setAgents(Array.isArray(result.data) ? result.data : []);
       } catch (error) {
         console.error('Could not load agents', error);
       }
@@ -71,6 +72,7 @@ export default function AppSidebar() {
             <span className="truncate">{agent.name}</span>
           </Link>
         ))}
+        
         {agents.length === 0 && (
           <p className="px-2.5 py-2 text-sm text-slate-400">No agents yet</p>
         )}

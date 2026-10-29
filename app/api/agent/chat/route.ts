@@ -1,13 +1,15 @@
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { authOptions } from "../../auth/[...nextauth]/route";
-import { AgentConfig, db } from "@/db";
+import { AgentConfig, db, Tools } from "@/db";
 import { and, eq } from "drizzle-orm";
-import { executeAgentChat } from "@/lib/openai-agent";
+import { executeAgentChat } from "@/lib/openai/openai-agent";
+import { getOrCreateAgentSession } from "@/lib/composio/services";
+import { AgentConfigType } from "@/type/Agent";
 
 export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
-    const { agentId, messages } = await req.json();
+    const { agentId, messages, timezone } = await req.json();
 
     if (!session?.user?.email) {
         return NextResponse.json(
@@ -23,6 +25,8 @@ export async function POST(req: NextRequest) {
         );
     }
 
+    let agentComposionTools: any[] = [];
+
     const agentConfigs = await db.select().from(AgentConfig)
     .where(
         and(
@@ -30,7 +34,8 @@ export async function POST(req: NextRequest) {
             eq(AgentConfig.userEmail, session.user.email)
         )   
     )
-    const agentConfig = agentConfigs[0];
+    const agentConfig : AgentConfigType = agentConfigs[0]; 
+
 
     if (!agentConfig) {
         return NextResponse.json({ error: "Agent not found" }, { status: 404 });
@@ -41,9 +46,37 @@ export async function POST(req: NextRequest) {
     )) {
         return NextResponse.json({ error: "Invalid messages" }, { status: 400 });
     }
+    
+    if(agentConfig?.tools){
+        const composioSession = await getOrCreateAgentSession(agentConfig, session.user?.email);
+        agentComposionTools = await composioSession.tools();
+    }
 
-    const response = await executeAgentChat(agentConfig.name, agentConfig.description ?? "", messages);
+    const tools = await db.select().from(Tools).where(eq(Tools.isActive, true));
 
-    return NextResponse.json({response})
+    const toolsCatalog = tools.map((tool) => ({
+        slug: tool.slug,
+        name: tool.name,
+        description: tool.description
+    }))
+
+    const response = await executeAgentChat(agentConfig.name, agentConfig.description ?? "",
+        messages, agentComposionTools, toolsCatalog, timezone
+    );
+
+    let ToolsConnection = null;
+
+    if (response?.routine) {
+    const routineTools = response.routine?.tools;
+    const routineToolSlugs = new Set(routineTools?.map((tool: { slug: string }) => tool.slug) ?? []);
+    const routineMappedTools = tools.filter((tool) => routineToolSlugs.has(tool.slug));
+
+    ToolsConnection = routineMappedTools;
+    }
+
+    return NextResponse.json({
+        response,
+        ToolsConnection,
+    })
 
 }

@@ -7,8 +7,8 @@ import { Toaster } from "@/components/ui/toast";
 const figtree = Figtree({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: "Next.js Premium Startup Boilerplate",
-  description: "Created using the ultimate interactive Next.js stack generator CLI.",
+  title: "Orbit — Your AI workspace",
+  description: "Create helpful AI agents, connect your tools, and bring your workflows together in Orbit.",
 };
 
 export default function RootLayout({

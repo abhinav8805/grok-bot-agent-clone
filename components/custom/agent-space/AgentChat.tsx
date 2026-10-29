@@ -2,7 +2,8 @@
 
 import { AgentConfigContext } from '@/context/AgentConfigContext';
 import { MessageType } from '@/type/Message';
-import { Send, Sparkles } from 'lucide-react';
+import { Send } from 'lucide-react';
+import {AgentResponseView} from './AgentResponseView';
 import { useSession } from 'next-auth/react';
 import { FormEvent, KeyboardEvent, useContext, useEffect, useRef, useState } from 'react';
 
@@ -69,19 +70,27 @@ export default function AgentChat() {
         body: JSON.stringify({
           agentId: agentConfig.agentId,
           messages: conversation.map(({ role, content }) => ({ role, content })),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? 'Unable to get a response from the agent.');
 
+      const agentResponse = data.response;
+      const agentMessage: MessageType = {
+        id: crypto.randomUUID(),
+        role: 'agent',
+        content: typeof agentResponse?.message === 'string'
+          ? agentResponse.message
+          : typeof agentResponse === 'string' ? agentResponse : String(agentResponse ?? ''),
+        response: agentResponse && typeof agentResponse === 'object' ? agentResponse : undefined,
+        toolCards: Array.isArray(data.ToolsConnection) ? data.ToolsConnection : undefined,
+        time: new Date().toISOString(),
+      };
+
       setMessages((current) => [
         ...current,
-        {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: typeof data.response === 'string' ? data.response : String(data.response ?? ''),
-          time: new Date().toISOString(),
-        },
+        agentMessage,
       ]);
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : 'Unable to send your message.');
@@ -119,12 +128,17 @@ export default function AgentChat() {
           return (
             <div key={message.id} className={`mx-auto flex max-w-3xl gap-3 ${isUser ? 'justify-end' : 'items-start'}`}>
               {!isUser && <img src={agentConfig?.agentImage} alt="" className="mt-1 size-8 shrink-0 rounded-full border border-slate-200 bg-slate-50" />}
-              <div className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm ${isUser ? 'rounded-tr-sm bg-slate-900 text-white' : 'rounded-tl-sm border border-slate-200 bg-white text-slate-700'}`}>
-                <p className="whitespace-pre-wrap">{message.content}</p>
-                <div className={`mt-1.5 flex items-center gap-1.5 text-[11px] ${isUser ? 'text-slate-300' : 'text-slate-400'}`}>
-                  {!isUser && <Sparkles size={12} />}
-                  {isUser ? 'You' : agentConfig?.name || 'Agent'} · {formatTime(message.time)}
-                </div>
+              <div className="max-w-[88%]">
+                {isUser ? (
+                  <div className="rounded-2xl rounded-tr-sm bg-slate-900 px-4 py-3 text-sm leading-6 text-white shadow-sm">
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                    <div className="mt-1.5 text-[11px] text-slate-300">You ? {formatTime(message.time)}</div>
+                  </div>
+                ) : (
+                  <>
+                    {agentConfig?.agentId && (<AgentResponseView message={message} agentId={agentConfig.agentId} />)}
+                  </>
+                )}
               </div>
               {isUser && <div className="mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">You</div>}
             </div>
@@ -157,3 +171,4 @@ export default function AgentChat() {
     </section>
   );
 }
+
